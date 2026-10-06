@@ -35,16 +35,35 @@ public:
     bool LoadCoursesFromFile();
     virtual string getID()
     {
-        return "";
+        return id;
     }
     virtual string getName()
     {
-        return "";
+        return name;
     }
 
     string getPassword();
     string getUser();
     int getTypeId();
+    string getPhone() const { return phone; }
+    string getEmail() const { return email; }
+    string getBirthDate() const { return birthDate; }
+    string getGender() const { return gender; }
+    string getAddress() const { return address; }
+    string getType() const { return type; }
+
+    void setID(const string& val) { id = val; }
+    void setName(const string& val) { name = val; }
+    void setPhone(const string& val) { phone = val; }
+    void setEmail(const string& val) { email = val; }
+    void setBirthDate(const string& val) { birthDate = val; }
+    void setGender(const string& val) { gender = val; }
+    void setAddress(const string& val) { address = val; }
+    void setType(const string& val) { type = val; }
+    void setUsername(const string& val) { username = val; }
+    void setPassword(const string& val) { password = val; passwordvalidaition = val; }
+    void setTypeId(int val) { typeID = val; }
+
     StaffData();
     virtual ~StaffData();
 

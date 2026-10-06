@@ -22,8 +22,13 @@ public:
     void addCourses();
     string getName();
     string getID();
+    string getHours() const { return hours; }
+    void setID(const string& i) { id = i; }
+    void setName(const string& n) { name = n; }
+    void setHours(const string& h) { hours = h; }
 
     Courses();
+    Courses(string cid, string cname, string chours) : id(cid), name(cname), hours(chours) {}
     virtual ~Courses();
 
 private:

@@ -3,6 +3,7 @@
 #include "StaffData.h"
 #include <windows.h>
 #include <fstream>
+#include <sstream>
 #include "Student.h"
 #include "Doctors.h"
 #include "Teaching_Assistant.h"

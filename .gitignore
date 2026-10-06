@@ -1,26 +1,18 @@
-# Prerequisites
+# Prerequisites & Compilations
 *.d
-
-# Compiled Object files
-*.slo
-*.lo
 *.o
 *.obj
+*.slo
+*.lo
 
 # Precompiled Headers
 *.gch
 *.pch
 
-# Compiled Dynamic libraries
+# Compiled Libraries
 *.so
 *.dylib
 *.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
 *.lai
 *.la
 *.a
@@ -30,3 +22,15 @@
 *.exe
 *.out
 *.app
+
+# IDE & Editor Temporary Files
+.idea/
+.vscode/
+*.depend
+*.layout
+*.cbp.depend
+*.cbp.layout
+
+# OS Metadata
+.DS_Store
+Thumbs.db

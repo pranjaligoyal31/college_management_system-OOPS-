@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ABV-IIITM Gwalior | College Management System</title>
+  <meta name="description" content="Integrated College Management System for ABV-IIITM Gwalior. Manage courses, faculty, students, timetables, exams, and library.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700&family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Site Header & Navbar -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#" class="brand-section">
+        <div class="brand-logo-badge">IIITM</div>
+        <div class="brand-info">
+          <div class="brand-title">ABV-IIITM GWALIOR</div>
+          <div class="brand-subtitle">Atal Bihari Vajpayee Indian Institute of Information Technology & Management</div>
+        </div>
+      </a>
+
+      <div class="header-controls">
+        <div id="apiStatusBadge" class="api-status-badge offline" title="Connection status with C++ Backend">
+          <span class="status-dot"></span> Checking API...
+        </div>
+
+        <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle Dark/Light Mode" aria-label="Toggle Theme">
+          ☀️
+        </button>
+
+        <button id="openAuthModalBtn" class="btn btn-primary btn-sm">
+          🔑 Sign In / Register
+        </button>
+
+        <div id="userProfileChip" class="user-profile-chip" style="display: none;">
+          <div id="userAvatarLetter" class="user-avatar-mini">U</div>
+          <div class="user-chip-text">
+            <span id="userProfileName" class="user-chip-name">Aarav Sharma</span>
+            <span id="userProfileRole" class="user-chip-role">Student</span>
+          </div>
+          <button id="logoutBtn" class="btn-icon" style="width: 26px; height: 26px; border: none; background: transparent; font-size: 0.85rem;" title="Sign Out">✖</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="app-container">
+
+    <!-- Hero Institutional Banner -->
+    <section class="hero-banner">
+      <div class="hero-content">
+        <h1>College Management System</h1>
+        <p>Integrated academic hub for courses, examinations, schedules, faculty allocation, and digital library resources at ABV-IIITM Gwalior.</p>
+      </div>
+
+      <div class="hero-metrics">
+        <div class="metric-card">
+          <div id="heroMetricCourses" class="metric-num">8</div>
+          <div class="metric-label">Active Courses</div>
+        </div>
+        <div class="metric-card">
+          <div id="heroMetricStudents" class="metric-num">120+</div>
+          <div class="metric-label">Enrolled Students</div>
+        </div>
+        <div class="metric-card">
+          <div id="heroMetricBooks" class="metric-num">1.4k</div>
+          <div class="metric-label">Library Books</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Role Switcher & Navigation Tabs -->
+    <nav class="role-tabs-bar" aria-label="Portals Navigation">
+      <button class="role-tab-btn active" data-tab="student">
+        🎓 Student Portal
+      </button>
+      <button class="role-tab-btn" data-tab="doctor">
+        👨‍🏫 Doctor / Faculty
+      </button>
+      <button class="role-tab-btn" data-tab="ta">
+        🧑‍💻 Teaching Assistant
+      </button>
+      <button class="role-tab-btn" data-tab="admin">
+        ⚙️ Administrator
+      </button>
+      <button class="role-tab-btn" data-tab="library">
+        📚 Digital Library
+      </button>
+    </nav>
+
+    <!-- 1. STUDENT PORTAL -->
+    <section id="portal-student" class="portal-panel active">
+      <div class="section-grid">
+        
+        <!-- Enrolled Courses -->
+        <div class="dashboard-card" style="grid-column: span 2;">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon">📖</div>
+              <div>
+                <h3 class="card-title">My Registered Courses</h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary);">Currently enrolled subjects for the active semester</p>
+              </div>
+            </div>
+            <span class="card-badge">Current Semester</span>
+          </div>
+
+          <div id="studentMyCoursesList" class="course-list-grid">
+            <!-- Dynamically Populated -->
+          </div>
+        </div>
+
+        <!-- Academic Schedule & Timetable -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon">📅</div>
+              <div>
+                <h3 class="card-title">Class Timetable</h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary);">Weekly lecture & lab schedule</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div class="course-item-card" style="border-left: 4px solid var(--primary);">
+              <strong>Mon - 09:30 AM</strong>
+              <p style="font-size: 0.85rem; color: var(--text-secondary);">CS-201: Data Structures & Algorithms</p>
+              <span style="font-size: 0.75rem; color: var(--accent-cyan);">LT-104 (Lecture Hall)</span>
+            </div>
+            <div class="course-item-card" style="border-left: 4px solid var(--secondary);">
+              <strong>Tue - 11:00 AM</strong>
+              <p style="font-size: 0.85rem; color: var(--text-secondary);">IT-202: Database Management Systems</p>
+              <span style="font-size: 0.75rem; color: var(--accent-cyan);">Lab 3 (Computing Center)</span>
+            </div>
+            <div class="course-item-card" style="border-left: 4px solid var(--accent-emerald);">
+              <strong>Wed - 02:00 PM</strong>
+              <p style="font-size: 0.85rem; color: var(--text-secondary);">CS-102: Digital Logic & Hardware</p>
+              <span style="font-size: 0.75rem; color: var(--accent-cyan);">Hardware Lab A</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Course Enrollment Catalog -->
+      <div class="dashboard-card" style="margin-bottom: 32px;">
+        <div class="card-header">
+          <div class="card-title-group">
+            <div class="card-icon">📝</div>
+            <div>
+              <h3 class="card-title">Course Registration Catalog</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary);">Select and enroll in available semester courses</p>
+            </div>
+          </div>
+          <span class="card-badge">IIITM GWL Curriculum</span>
+        </div>
+
+        <div id="studentCatalogList" class="course-list-grid">
+          <!-- Dynamically Populated -->
+        </div>
+      </div>
+
+      <!-- Academic Materials Repository -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <div class="card-icon">📁</div>
+            <div>
+              <h3 class="card-title">Academic Materials & Exam Repository</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary);">Browse mid-sem & end-sem exams, practical labs, and assignments</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-bar">
+          <select id="materialTypeSelect" class="form-select" style="max-width: 200px;">
+            <option value="exams">Final Exams</option>
+            <option value="practical">Practical Exams</option>
+            <option value="quizzes">Weekly Quizzes</option>
+            <option value="assignments">Assignments</option>
+            <option value="tables">Class Schedules</option>
+          </select>
+
+          <select id="materialYearSelect" class="form-select" style="max-width: 180px;">
+            <option value="FirstYear">First Year</option>
+            <option value="SecondYear" selected>Second Year</option>
+            <option value="ThirdYear">Third Year</option>
+            <option value="FourthYear">Fourth Year</option>
+          </select>
+
+          <select id="materialSemSelect" class="form-select" style="max-width: 180px;">
+            <option value="SemesterOne" selected>Semester 1</option>
+            <option value="SemesterTwo">Semester 2</option>
+          </select>
+        </div>
+
+        <div id="studentMaterialsList">
+          <!-- Dynamically Populated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. DOCTOR / FACULTY PORTAL -->
+    <section id="portal-doctor" class="portal-panel">
+      <div class="section-grid">
+        
+        <!-- Assigned Courses -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon">👨‍🏫</div>
+              <div>
+                <h3 class="card-title">My Taught Courses</h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary);">Assigned subjects and lecture modules</p>
+              </div>
+            </div>
+          </div>
+
+          <form id="doctorAssignForm" style="margin-bottom: 20px; display: flex; gap: 10px;">
+            <select id="doctorAssignCourseSelect" class="form-select" required>
+              <option value="">Loading courses...</option>
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm" style="white-space: nowrap;">+ Assign</button>
+          </form>
+
+          <div id="doctorCoursesList" class="course-list-grid">
+            <!-- Dynamically Populated -->
+          </div>
+        </div>
+
+        <!-- Post Exam or Assignment -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon">📤</div>
+              <div>
+                <h3 class="card-title">Post Academic Resource</h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary);">Publish exams or homework assignments</p>
+              </div>
+            </div>
+          </div>
+
+          <form id="postMaterialForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Material Type</label>
+                <select id="postMatType" class="form-select">
+                  <option value="exams">Mid-Sem / End-Sem Exam</option>
+                  <option value="assignments">Homework Assignment</option>
+                  <option value="quizzes">Course Quiz</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Academic Year</label>
+                <select id="postMatYear" class="form-select">
+                  <option value="FirstYear">First Year</option>
+                  <option value="SecondYear" selected>Second Year</option>
+                  <option value="ThirdYear">Third Year</option>
+                  <option value="FourthYear">Fourth Year</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Semester</label>
+                <select id="postMatSem" class="form-select">
+                  <option value="SemesterOne">Semester 1</option>
+                  <option value="SemesterTwo">Semester 2</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Course Code</label>
+                <input type="text" id="postMatCode" class="form-input" placeholder="e.g. CS-201" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Document Title</label>
+              <input type="text" id="postMatTitle" class="form-input" placeholder="e.g. End Semester Exam Paper (Autumn 2026)" required>
+            </div>
+
+            <button type="submit" class="btn btn-emerald" style="width: 100%;">
+              🚀 Publish Resource
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Enrolled Students Directory -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <div class="card-icon">👥</div>
+            <div>
+              <h3 class="card-title">Enrolled Students Roster</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary);">Student database and profiles</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="doctorStudentsTable" class="table-responsive">
+          <!-- Dynamically Populated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. TEACHING ASSISTANT PORTAL -->
+    <section id="portal-ta" class="portal-panel">
+      <div class="section-grid">
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon">🔬</div>
+              <div>
+                <h3 class="card-title">My Lab & Practical Courses</h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary);">Lab demonstrations and tutorial sessions</p>
+              </div>
+            </div>
+          </div>
+
+          <div id="taCoursesList" class="course-list-grid">
+            <!-- Dynamically Populated -->
+          </div>
+        </div>
+
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon">⚡</div>
+              <div>
+                <h3 class="card-title">Post Lab Practical / Quiz</h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary);">Upload weekly lab exercises and evaluation rubrics</p>
+              </div>
+            </div>
+          </div>
+
+          <form onsubmit="event.preventDefault(); showToast('Lab practical exercise published successfully!', 'success'); this.reset();">
+            <div class="form-group">
+              <label class="form-label">Exercise Title</label>
+              <input type="text" class="form-input" placeholder="e.g. Lab Experiment 4 - Binary Search Tree" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Course</label>
+                <input type="text" class="form-input" placeholder="CS-201 Lab" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Due Date</label>
+                <input type="date" class="form-input" required>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+              Publish Lab Experiment
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- TA Student Practical Roster -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <div class="card-icon">📊</div>
+            <div>
+              <h3 class="card-title">Lab Attendance & Practical Evaluation</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary);">Batch tracking & assessment</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="taStudentsTable" class="table-responsive">
+          <!-- Dynamically Populated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. ADMINISTRATOR PORTAL -->
+    <section id="portal-admin" class="portal-panel">
+      <!-- Admin KPI Counters -->
+      <div class="section-grid" style="margin-bottom: 24px;">
+        <div class="dashboard-card" style="text-align: center;">
+          <div style="font-size: 2rem;">🎓</div>
+          <div id="adminCountStudents" class="metric-num">4</div>
+          <div class="metric-label">Registered Students</div>
+        </div>
+        <div class="dashboard-card" style="text-align: center;">
+          <div style="font-size: 2rem;">📚</div>
+          <div id="adminCountCourses" class="metric-num">8</div>
+          <div class="metric-label">Active Courses</div>
+        </div>
+        <div class="dashboard-card" style="text-align: center;">
+          <div style="font-size: 2rem;">📖</div>
+          <div id="adminCountBooks" class="metric-num">5</div>
+          <div class="metric-label">Cataloged Books</div>
+        </div>
+      </div>
+
+      <div class="section-grid">
+        <!-- Add Course Form -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon">➕</div>
+              <div>
+                <h3 class="card-title">Add New Course</h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary);">Create course in IIITM GWL curriculum</p>
+              </div>
+            </div>
+          </div>
+
+          <form id="adminAddCourseForm">
+            <div class="form-group">
+              <label class="form-label">Course Code / ID</label>
+              <input type="text" id="adminCourseId" class="form-input" placeholder="e.g. CS-305" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Course Name</label>
+              <input type="text" id="adminCourseName" class="form-input" placeholder="e.g. Compiler Design" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Lecture / Credit Hours</label>
+              <input type="number" id="adminCourseHours" class="form-input" placeholder="e.g. 45" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">
+              Create Course Record
+            </button>
+          </form>
+        </div>
+
+        <!-- Add Library Book Form -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <div class="card-icon">📚</div>
+              <div>
+                <h3 class="card-title">Catalog New Library Book</h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary);">Add reference text to institute digital library</p>
+              </div>
+            </div>
+          </div>
+
+          <form id="adminAddBookForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Book Accession ID</label>
+                <input type="text" id="adminBookId" class="form-input" placeholder="e.g. BK-201" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Category</label>
+                <input type="text" id="adminBookCat" class="form-input" placeholder="e.g. Systems" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Book Title</label>
+              <input type="text" id="adminBookTitle" class="form-input" placeholder="e.g. Modern Operating Systems" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Author(s)</label>
+              <input type="text" id="adminBookAuthor" class="form-input" placeholder="e.g. Andrew S. Tanenbaum" required>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Year</label>
+                <select id="adminBookYear" class="form-select">
+                  <option value="First Year">First Year</option>
+                  <option value="Second Year">Second Year</option>
+                  <option value="Third Year">Third Year</option>
+                  <option value="Fourth Year">Fourth Year</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Semester</label>
+                <select id="adminBookSem" class="form-select">
+                  <option value="Semester 1">Semester 1</option>
+                  <option value="Semester 2">Semester 2</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-emerald" style="width: 100%;">
+              Catalog Book
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Master Course Directory -->
+      <div class="dashboard-card" style="margin-bottom: 24px;">
+        <div class="card-header">
+          <div class="card-title-group">
+            <div class="card-icon">📋</div>
+            <div>
+              <h3 class="card-title">Master Courses Directory</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary);">All courses loaded in C++ database</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="adminCoursesTable" class="table-responsive">
+          <!-- Dynamically Populated -->
+        </div>
+      </div>
+
+      <!-- Master Books Directory -->
+      <div class="dashboard-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <div class="card-icon">📖</div>
+            <div>
+              <h3 class="card-title">Digital Library Records</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary);">All registered library volumes</p>
+            </div>
+          </div>
+        </div>
+
+        <div id="adminBooksTable" class="table-responsive">
+          <!-- Dynamically Populated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. DIGITAL LIBRARY GLOBAL TAB -->
+    <section id="portal-library" class="portal-panel">
+      <div class="dashboard-card">
+        <div class="card-header">
+          <div class="card-title-group">
+            <div class="card-icon">📚</div>
+            <div>
+              <h3 class="card-title">ABV-IIITM Digital Library & Course Books</h3>
+              <p style="font-size: 0.8rem; color: var(--text-secondary);">Search, read, and download digital course textbooks & references</p>
+            </div>
+          </div>
+          <span class="card-badge">Library Open</span>
+        </div>
+
+        <div id="libraryBooksGrid" class="course-list-grid">
+          <!-- Dynamically Populated -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Authentication Modal (Sign In / Register) -->
+  <div id="authModal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">IIITM GWL Portal Login</h3>
+          <p style="font-size: 0.8rem; color: var(--text-secondary);">Access academic, teaching, or admin accounts</p>
+        </div>
+        <button id="closeAuthModalBtn" class="btn-icon" style="border: none; background: transparent; font-size: 1.2rem;">✖</button>
+      </div>
+
+      <div class="modal-body">
+        
+        <!-- Auth Mode Switcher -->
+        <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+          <button class="btn btn-secondary btn-sm auth-tab-btn active" data-mode="login" style="flex: 1;">Sign In</button>
+          <button class="btn btn-secondary btn-sm auth-tab-btn" data-mode="signup" style="flex: 1;">Register Account</button>
+        </div>
+
+        <!-- Quick Demo Role Picker -->
+        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 4px;">Quick Role Selector (Auto-fills Demo Credentials):</div>
+        <div class="demo-role-pills">
+          <div class="demo-pill active" data-role="Student">🎓 Student</div>
+          <div class="demo-pill" data-role="Doctor">👨‍🏫 Doctor</div>
+          <div class="demo-pill" data-role="Teaching Assistant">🧑‍💻 TA</div>
+          <div class="demo-pill" data-role="Administrator">⚙️ Admin</div>
+        </div>
+
+        <form id="authForm">
+          <div class="form-group">
+            <label class="form-label">Select Role</label>
+            <select id="authRoleSelect" class="form-select">
+              <option value="Student">Student</option>
+              <option value="Doctor">Doctor / Professor</option>
+              <option value="Teaching Assistant">Teaching Assistant</option>
+              <option value="Administrator">Administrator</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Username</label>
+            <input type="text" id="authUsername" class="form-input" value="student1" required>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" id="authPassword" class="form-input" value="123" required>
+          </div>
+
+          <!-- Extra Fields for Registration -->
+          <div id="signupExtraFields" style="display: none;">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Roll / ID Number</label>
+                <input type="text" id="authId" class="form-input" placeholder="e.g. 2024BCS-105">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Full Name</label>
+                <input type="text" id="authName" class="form-input" placeholder="e.g. Rahul Sharma">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Email Address</label>
+                <input type="email" id="authEmail" class="form-input" placeholder="name@iiitm.ac.in">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Phone Number</label>
+                <input type="tel" id="authPhone" class="form-input" placeholder="+91 9876543210">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Gender</label>
+              <select id="authGender" class="form-select">
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="submit" id="authSubmitBtn" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+            Sign In to Portal
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Alert Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Scripts -->
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
