@@ -1,12 +1,29 @@
+#ifdef _WIN32
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <windows.h>
+#pragma comment(lib, "ws2_32.lib")
+#else
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <sys/stat.h>
+#define SOCKET int
+#define INVALID_SOCKET -1
+#define SOCKET_ERROR -1
+#define closesocket close
+#endif
+
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
 #include <map>
+#include <deque>
 #include <algorithm>
 #include <sys/stat.h>
 
@@ -17,18 +34,31 @@
 #include "Administrator.h"
 #include "ShowData.h"
 #include "Books.h"
-
-#pragma comment(lib, "ws2_32.lib")
+#include "RedisClient.h"
 
 using namespace std;
 
 static const int DEFAULT_PORT = 8080;
-static CRITICAL_SECTION db_cs;
 
+#ifdef _WIN32
+static CRITICAL_SECTION db_cs;
 struct AutoLock {
     AutoLock() { EnterCriticalSection(&db_cs); }
     ~AutoLock() { LeaveCriticalSection(&db_cs); }
 };
+#else
+static pthread_mutex_t db_mutex = PTHREAD_MUTEX_INITIALIZER;
+struct AutoLock {
+    AutoLock() { pthread_mutex_lock(&db_mutex); }
+    ~AutoLock() { pthread_mutex_unlock(&db_mutex); }
+};
+#endif
+
+// Global Redis TCP Client instance
+static RedisClient redisClient;
+
+// Event buffer for real-time announcements
+static deque<string> eventBuffer;
 
 // Utility functions for string manipulation and JSON
 string trim(const string& s) {
@@ -81,8 +111,31 @@ string extractJSONField(const string& json, const string& key) {
     }
 }
 
+// Broadcast event to Redis Pub/Sub and in-memory queue
+void broadcastEvent(const string& eventType, const string& title, const string& details) {
+    stringstream eventJSON;
+    eventJSON << "{"
+              << "\"type\":\"" << escapeJSON(eventType) << "\","
+              << "\"title\":\"" << escapeJSON(title) << "\","
+              << "\"details\":\"" << escapeJSON(details) << "\","
+              << "\"timestamp\":\"" << time(NULL) << "\""
+              << "}";
+
+    string payload = eventJSON.str();
+    
+    // 1. Publish to Redis network channel over TCP
+    redisClient.publish("iiitm_campus_feed", payload);
+
+    // 2. Keep in local event queue
+    eventBuffer.push_back(payload);
+    if (eventBuffer.size() > 20) {
+        eventBuffer.pop_front();
+    }
+}
+
 // Ensure required directory paths exist
 void ensureDirectories() {
+#ifdef _WIN32
     CreateDirectoryA("DataBase", NULL);
     CreateDirectoryA("DataBase\\StaffData", NULL);
     CreateDirectoryA("DataBase\\Courses", NULL);
@@ -95,6 +148,20 @@ void ensureDirectories() {
     CreateDirectoryA("DataBase\\Quizzes", NULL);
     CreateDirectoryA("DataBase\\Tables", NULL);
     CreateDirectoryA("DataBase\\Books", NULL);
+#else
+    mkdir("DataBase", 0777);
+    mkdir("DataBase/StaffData", 0777);
+    mkdir("DataBase/Courses", 0777);
+    mkdir("DataBase/StudentCourses", 0777);
+    mkdir("DataBase/DoctorCourses", 0777);
+    mkdir("DataBase/TeachingAssistantCourses", 0777);
+    mkdir("DataBase/Assignments", 0777);
+    mkdir("DataBase/Exams", 0777);
+    mkdir("DataBase/PracticalExams", 0777);
+    mkdir("DataBase/Quizzes", 0777);
+    mkdir("DataBase/Tables", 0777);
+    mkdir("DataBase/Books", 0777);
+#endif
 }
 
 // HTTP Request structure
@@ -135,8 +202,8 @@ map<string, string> parseQueryParams(const string& query) {
     return params;
 }
 
-// Send HTTP Response
-void sendResponse(SOCKET clientSocket, int statusCode, const string& contentType, const string& body) {
+// Send HTTP Response with CORS & Custom Headers
+void sendResponse(SOCKET clientSocket, int statusCode, const string& contentType, const string& body, const string& cacheHeader = "") {
     string statusText = "OK";
     if (statusCode == 200) statusText = "OK";
     else if (statusCode == 201) statusText = "Created";
@@ -153,6 +220,9 @@ void sendResponse(SOCKET clientSocket, int statusCode, const string& contentType
     response << "Access-Control-Allow-Origin: *\r\n";
     response << "Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS\r\n";
     response << "Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With\r\n";
+    if (!cacheHeader.empty()) {
+        response << "X-Cache-Status: " << cacheHeader << "\r\n";
+    }
     response << "Connection: close\r\n\r\n";
     response << body;
 
@@ -174,6 +244,8 @@ bool serveStaticFile(SOCKET clientSocket, const string& filepath, const string& 
 }
 
 // C++ API Route Handlers
+
+// 1. Status & Redis Cache Stats
 void handleStatus(SOCKET clientSocket) {
     AutoLock lock;
     int studentsCount = 0, doctorsCount = 0, tasCount = 0, coursesCount = 0;
@@ -195,12 +267,21 @@ void handleStatus(SOCKET clientSocket) {
     while (getline(fc, line)) if (!trim(line).empty()) coursesCount++;
     fc.close();
 
+    bool isRedisUp = redisClient.isConnected();
+
     stringstream json;
     json << "{\n"
          << "  \"success\": true,\n"
          << "  \"college\": \"ABV-IIITM Gwalior (IIITM GWL)\",\n"
          << "  \"system\": \"College Management System C++ Backend\",\n"
-         << "  \"version\": \"2.0.0\",\n"
+         << "  \"version\": \"2.1.0\",\n"
+         << "  \"network\": {\n"
+         << "    \"redis_cache\": \"" << (isRedisUp ? "ONLINE (Sub-millisecond TCP RAM Cache)" : "STANDBY (Disk-Fallback Mode)") << "\",\n"
+         << "    \"redis_host\": \"" << redisClient.getHost() << "\",\n"
+         << "    \"redis_port\": " << redisClient.getPort() << ",\n"
+         << "    \"cache_hits\": " << redisClient.getHits() << ",\n"
+         << "    \"cache_misses\": " << redisClient.getMisses() << "\n"
+         << "  },\n"
          << "  \"stats\": {\n"
          << "    \"students\": " << studentsCount << ",\n"
          << "    \"doctors\": " << doctorsCount << ",\n"
@@ -211,6 +292,21 @@ void handleStatus(SOCKET clientSocket) {
     sendResponse(clientSocket, 200, "application/json", json.str());
 }
 
+// 2. Real-Time Campus Events (Redis Pub/Sub Buffer)
+void handleLiveEvents(SOCKET clientSocket) {
+    AutoLock lock;
+    stringstream json;
+    json << "{\n"
+         << "  \"success\": true,\n"
+         << "  \"feed\": [\n";
+    for (size_t i = 0; i < eventBuffer.size(); ++i) {
+        json << "    " << eventBuffer[i] << (i + 1 < eventBuffer.size() ? "," : "") << "\n";
+    }
+    json << "  ]\n}";
+    sendResponse(clientSocket, 200, "application/json", json.str());
+}
+
+// 3. User Login & Session Creation
 void handleLogin(SOCKET clientSocket, const HttpRequest& req) {
     AutoLock lock;
     string username = extractJSONField(req.body, "username");
@@ -259,10 +355,18 @@ void handleLogin(SOCKET clientSocket, const HttpRequest& req) {
     in.close();
 
     if (matched) {
+        // Cache user session in Redis with 1-hour TTL
+        string sessionKey = "session:" + u;
+        redisClient.set(sessionKey, id, 3600);
+
         stringstream json;
         json << "{\n"
              << "  \"success\": true,\n"
              << "  \"message\": \"Login successful\",\n"
+             << "  \"session\": {\n"
+             << "    \"token\": \"" << escapeJSON(sessionKey) << "\",\n"
+             << "    \"ttl\": 3600\n"
+             << "  },\n"
              << "  \"user\": {\n"
              << "    \"username\": \"" << escapeJSON(u) << "\",\n"
              << "    \"id\": \"" << escapeJSON(id) << "\",\n"
@@ -282,6 +386,7 @@ void handleLogin(SOCKET clientSocket, const HttpRequest& req) {
     }
 }
 
+// 4. Registration
 void handleSignup(SOCKET clientSocket, const HttpRequest& req) {
     AutoLock lock;
     string username = extractJSONField(req.body, "username");
@@ -343,6 +448,9 @@ void handleSignup(SOCKET clientSocket, const HttpRequest& req) {
         << role << endl;
     out.close();
 
+    // Broadcast new registration
+    broadcastEvent("NEW_REGISTRATION", name + " (" + role + ") joined IIITM Portal", "ID: " + id);
+
     stringstream json;
     json << "{\n"
          << "  \"success\": true,\n"
@@ -357,7 +465,15 @@ void handleSignup(SOCKET clientSocket, const HttpRequest& req) {
     sendResponse(clientSocket, 201, "application/json", json.str());
 }
 
+// 5. Get Courses with Redis In-Memory Caching
 void handleGetCourses(SOCKET clientSocket) {
+    // Check Redis in-memory cache first (Network Caching Concept)
+    string cachedCourses = redisClient.get("cache:courses");
+    if (!cachedCourses.empty()) {
+        sendResponse(clientSocket, 200, "application/json", cachedCourses, "HIT (Redis In-Memory Cache)");
+        return;
+    }
+
     AutoLock lock;
     ifstream in("DataBase/Courses/Courses.txt");
     vector<Courses> courses;
@@ -378,7 +494,7 @@ void handleGetCourses(SOCKET clientSocket) {
     }
 
     stringstream json;
-    json << "{\n  \"success\": true,\n  \"courses\": [\n";
+    json << "{\n  \"success\": true,\n  \"source\": \"Disk & Loaded into Redis Cache\",\n  \"courses\": [\n";
     for (size_t i = 0; i < courses.size(); ++i) {
         json << "    {\n"
              << "      \"id\": \"" << escapeJSON(courses[i].getID()) << "\",\n"
@@ -387,9 +503,15 @@ void handleGetCourses(SOCKET clientSocket) {
              << "    }" << (i + 1 < courses.size() ? "," : "") << "\n";
     }
     json << "  ]\n}";
-    sendResponse(clientSocket, 200, "application/json", json.str());
+    string jsonStr = json.str();
+
+    // Cache in Redis for 180 seconds
+    redisClient.set("cache:courses", jsonStr, 180);
+
+    sendResponse(clientSocket, 200, "application/json", jsonStr, "MISS (Populated Redis Cache)");
 }
 
+// 6. Add Course with Cache Invalidation & Pub/Sub Broadcast
 void handleAddCourse(SOCKET clientSocket, const HttpRequest& req) {
     AutoLock lock;
     string cid = extractJSONField(req.body, "id");
@@ -409,9 +531,16 @@ void handleAddCourse(SOCKET clientSocket, const HttpRequest& req) {
     out << cid << "," << cname << "," << chours << endl;
     out.close();
 
-    sendResponse(clientSocket, 201, "application/json", "{\"success\":true,\"message\":\"Course added successfully to IIITM GWL database.\"}");
+    // 1. Invalidate Redis cache so subsequent GET calls get fresh data
+    redisClient.del("cache:courses");
+
+    // 2. Publish broadcast event over Redis Pub/Sub
+    broadcastEvent("NEW_COURSE_ANNOUNCEMENT", "New Course Added: " + cname, "Course Code: " + cid + " (" + chours + " hrs)");
+
+    sendResponse(clientSocket, 201, "application/json", "{\"success\":true,\"message\":\"Course added & broadcasted to campus network via Redis!\"}");
 }
 
+// 7. Student Enrollment
 void handleGetStudentCourses(SOCKET clientSocket, const HttpRequest& req) {
     AutoLock lock;
     string name = req.queryParams.count("name") ? req.queryParams.at("name") : "";
@@ -514,6 +643,9 @@ void handleStudentEnroll(SOCKET clientSocket, const HttpRequest& req) {
     out << courseId << "," << foundName << "," << foundHours << endl;
     out.close();
 
+    // Broadcast enrollment
+    broadcastEvent("COURSE_ENROLLMENT", name + " enrolled in " + foundName, "Roll: " + studentId);
+
     sendResponse(clientSocket, 200, "application/json", "{\"success\":true,\"message\":\"Enrolled successfully in " + escapeJSON(foundName) + "\"}");
 }
 
@@ -600,6 +732,8 @@ void handleDoctorAssign(SOCKET clientSocket, const HttpRequest& req) {
     out << courseId << "," << foundName << "," << foundHours << endl;
     out.close();
 
+    broadcastEvent("FACULTY_ASSIGNMENT", name + " assigned to teach " + foundName, "Course: " + courseId);
+
     sendResponse(clientSocket, 200, "application/json", "{\"success\":true,\"message\":\"Course assigned to Doctor successfully.\"}");
 }
 
@@ -645,6 +779,13 @@ void handleGetStudents(SOCKET clientSocket) {
 }
 
 void handleGetBooks(SOCKET clientSocket) {
+    // Check Redis Cache
+    string cachedBooks = redisClient.get("cache:books");
+    if (!cachedBooks.empty()) {
+        sendResponse(clientSocket, 200, "application/json", cachedBooks, "HIT (Redis In-Memory Cache)");
+        return;
+    }
+
     stringstream json;
     json << "{\n  \"success\": true,\n  \"books\": [\n"
          << "    {\"id\": \"BK101\", \"title\": \"Discrete Mathematics and Its Applications\", \"author\": \"Kenneth Rosen\", \"year\": \"First Year\", \"semester\": \"Semester 1\", \"category\": \"Mathematics\"},\n"
@@ -655,7 +796,12 @@ void handleGetBooks(SOCKET clientSocket) {
          << "    {\"id\": \"BK106\", \"title\": \"Computer Networking: A Top-Down Approach\", \"author\": \"James Kurose, Keith Ross\", \"year\": \"Third Year\", \"semester\": \"Semester 2\", \"category\": \"Networks\"},\n"
          << "    {\"id\": \"BK107\", \"title\": \"Artificial Intelligence: A Modern Approach\", \"author\": \"Stuart Russell, Peter Norvig\", \"year\": \"Fourth Year\", \"semester\": \"Semester 1\", \"category\": \"AI / ML\"}\n"
          << "  ]\n}";
-    sendResponse(clientSocket, 200, "application/json", json.str());
+    string jsonStr = json.str();
+
+    // Cache in Redis for 300 seconds
+    redisClient.set("cache:books", jsonStr, 300);
+
+    sendResponse(clientSocket, 200, "application/json", jsonStr, "MISS (Populated Redis Cache)");
 }
 
 void handleGetMaterials(SOCKET clientSocket, const HttpRequest& req) {
@@ -739,6 +885,8 @@ void processClient(SOCKET clientSocket) {
     // Route dispatch
     if (path == "/api/status") {
         handleStatus(clientSocket);
+    } else if (path == "/api/events/live") {
+        handleLiveEvents(clientSocket);
     } else if (path == "/api/auth/login" && method == "POST") {
         handleLogin(clientSocket, req);
     } else if (path == "/api/auth/signup" && method == "POST") {
@@ -787,11 +935,19 @@ void processClient(SOCKET clientSocket) {
     closesocket(clientSocket);
 }
 
+#ifdef _WIN32
 DWORD WINAPI ClientThreadRoutine(LPVOID lpParam) {
     SOCKET clientSocket = (SOCKET)(uintptr_t)lpParam;
     processClient(clientSocket);
     return 0;
 }
+#else
+void* ClientThreadRoutine(void* lpParam) {
+    SOCKET clientSocket = (SOCKET)(uintptr_t)lpParam;
+    processClient(clientSocket);
+    return NULL;
+}
+#endif
 
 int main(int argc, char* argv[]) {
     int port = DEFAULT_PORT;
@@ -800,23 +956,27 @@ int main(int argc, char* argv[]) {
         if (port <= 0) port = DEFAULT_PORT;
     }
 
+#ifdef _WIN32
     InitializeCriticalSection(&db_cs);
-    ensureDirectories();
-
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         cerr << "[ERROR] WSAStartup failed.\n";
         return 1;
     }
+#endif
+
+    ensureDirectories();
 
     SOCKET listenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listenSocket == INVALID_SOCKET) {
-        cerr << "[ERROR] Could not create socket: " << WSAGetLastError() << "\n";
+        cerr << "[ERROR] Could not create socket\n";
+#ifdef _WIN32
         WSACleanup();
+#endif
         return 1;
     }
 
-    BOOL reuse = TRUE;
+    int reuse = 1;
     setsockopt(listenSocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&reuse, sizeof(reuse));
 
     sockaddr_in serverAddr;
@@ -825,44 +985,61 @@ int main(int argc, char* argv[]) {
     serverAddr.sin_port = htons((u_short)port);
 
     if (bind(listenSocket, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        cerr << "[ERROR] Socket bind failed on port " << port << ": " << WSAGetLastError() << "\n";
+        cerr << "[ERROR] Socket bind failed on port " << port << "\n";
         closesocket(listenSocket);
+#ifdef _WIN32
         WSACleanup();
+#endif
         return 1;
     }
 
     if (listen(listenSocket, SOMAXCONN) == SOCKET_ERROR) {
-        cerr << "[ERROR] Listen failed: " << WSAGetLastError() << "\n";
+        cerr << "[ERROR] Listen failed\n";
         closesocket(listenSocket);
+#ifdef _WIN32
         WSACleanup();
+#endif
         return 1;
     }
 
     cout << "\n========================================================\n";
     cout << "   IIITM GWL - COLLEGE MANAGEMENT SYSTEM BACKEND\n";
-    cout << "   Powered by C++ & Windows Sockets (Winsock2)\n";
+    cout << "   Powered by C++ & Redis Network Caching (Port 6379)\n";
     cout << "========================================================\n";
-    cout << " [OK] REST API Server running at: http://localhost:" << port << "/\n";
+    cout << " [OK] REST API Server running at: http://0.0.0.0:" << port << "/\n";
     cout << " [OK] API Endpoints available at: http://localhost:" << port << "/api/...\n";
-    cout << " [OK] Serving Frontend from:      web/index.html\n";
+    cout << " [OK] Redis TCP Cache Target:     " << redisClient.getHost() << ":" << redisClient.getPort() << "\n";
+    cout << " [OK] Live Pub/Sub Feed Channel:  iiitm_campus_feed\n";
     cout << "========================================================\n\n";
+
+    // Initial broadcast
+    broadcastEvent("SERVER_ONLINE", "IIITM GWL Academic Server is Online", "Ready to serve student & faculty requests.");
 
     while (true) {
         sockaddr_in clientAddr;
-        int clientLen = sizeof(clientAddr);
+        socklen_t clientLen = sizeof(clientAddr);
         SOCKET clientSocket = accept(listenSocket, (sockaddr*)&clientAddr, &clientLen);
         if (clientSocket == INVALID_SOCKET) {
             continue;
         }
 
+#ifdef _WIN32
         HANDLE hThread = CreateThread(NULL, 0, ClientThreadRoutine, (LPVOID)(uintptr_t)clientSocket, 0, NULL);
         if (hThread) {
             CloseHandle(hThread);
         }
+#else
+        pthread_t tid;
+        if (pthread_create(&tid, NULL, ClientThreadRoutine, (void*)(uintptr_t)clientSocket) == 0) {
+            pthread_detach(tid);
+        }
+#endif
     }
 
     closesocket(listenSocket);
+#ifdef _WIN32
     WSACleanup();
     DeleteCriticalSection(&db_cs);
+#endif
     return 0;
 }

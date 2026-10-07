@@ -1,0 +1,59 @@
+services:
+  # ===================================================================
+  # 1. Redis Service (In-Memory TCP Cache & Pub/Sub Live Feeds)
+  # ===================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: iiitm-redis-cache
+    restart: unless-stopped
+    command: redis-server --appendonly yes --save 60 1
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - iiitm-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===================================================================
+  # 2. IIITM GWL College System (C++ REST Backend + Web Frontend)
+  # ===================================================================
+  college-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: iiitm-college-portal
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - INSTITUTE_NAME=ABV-IIITM Gwalior
+    volumes:
+      - ./College_system/DataBase:/app/DataBase
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - iiitm-network
+
+# ===================================================================
+# Custom Isolated Docker Bridge Network
+# ===================================================================
+networks:
+  iiitm-network:
+    name: iiitm-network
+    driver: bridge
+
+# ===================================================================
+# Persistent Volumes
+# ===================================================================
+volumes:
+  redis_data:
+    driver: local

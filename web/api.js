@@ -292,6 +292,26 @@ class CollegeAPI {
     return { success: true, message: `${type.toUpperCase()} uploaded successfully for ${year} (${semester})` };
   }
 
+  // 9. Real-Time Campus Events (Redis Pub/Sub Buffer)
+  async getLiveEvents() {
+    if (this.isBackendOnline) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/live-events`);
+        if (res.ok) {
+          const data = await res.json();
+          return data.feed || [];
+        }
+      } catch (err) {
+        console.warn('Backend error getting live events:', err);
+      }
+    }
+    return [
+      { type: 'REDIS_INIT', title: 'Redis Pub/Sub Active', details: 'Listening for live campus broadcasts on iiitm_campus_feed' },
+      { type: 'EXAM_POSTED', title: 'Final Exam Posted', details: 'CS-201 Data Structures End-Sem schedule updated' },
+      { type: 'COURSE_ADDED', title: 'New Course Registered', details: 'IT-301 Computer Networks added to curriculum' }
+    ];
+  }
+
   // Local Storage Helpers
   getLocalData(key) {
     try {

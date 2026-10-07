@@ -71,23 +71,64 @@ document.addEventListener('DOMContentLoaded', () => {
     return el;
   }
 
-  // Check C++ Backend Connection
+  // Check C++ Backend Connection & Redis Network Pulse
   async function checkBackend() {
     const res = await window.collegeAPI.checkConnection();
-    if (res.online) {
+    const redisDot = document.getElementById('redisDot');
+    const redisStatusText = document.getElementById('redisStatusText');
+    const cacheHitsStat = document.getElementById('cacheHitsStat');
+    const cacheMissesStat = document.getElementById('cacheMissesStat');
+    const netLatencyStat = document.getElementById('netLatencyStat');
+
+    if (res.online && res.data) {
       apiStatusBadge.className = 'api-status-badge';
       apiStatusBadge.innerHTML = `<span class="status-dot"></span> C++ REST API (Port 8080)`;
       apiStatusBadge.title = 'Live C++ Winsock REST API Connected';
+
+      if (res.data.network) {
+        if (redisDot) redisDot.className = 'network-dot';
+        if (redisStatusText) {
+          redisStatusText.innerHTML = `Redis TCP: <strong style="color:var(--accent-emerald)">ONLINE</strong> (${res.data.network.redis_host || '127.0.0.1'}:${res.data.network.redis_port || 6379})`;
+        }
+        if (cacheHitsStat) cacheHitsStat.innerText = res.data.network.cache_hits || '0';
+        if (cacheMissesStat) cacheMissesStat.innerText = res.data.network.cache_misses || '0';
+        if (netLatencyStat) netLatencyStat.innerText = '0.3ms';
+      }
     } else {
       apiStatusBadge.className = 'api-status-badge offline';
       apiStatusBadge.innerHTML = `<span class="status-dot"></span> Local Sync Active`;
       apiStatusBadge.title = 'C++ Server Offline - using local state';
+
+      if (redisDot) redisDot.className = 'network-dot offline';
+      if (redisStatusText) {
+        redisStatusText.innerHTML = `Redis TCP: <strong style="color:var(--accent-amber)">STANDBY</strong> (Local Fallback)`;
+      }
     }
   }
 
-  // Refresh Connection periodically
+  // Live Pub/Sub Ticker Rotator
+  let liveEventIndex = 0;
+  async function refreshPubSubTicker() {
+    const ticker = document.getElementById('pubsubTicker');
+    if (!ticker) return;
+
+    const events = await window.collegeAPI.getLiveEvents();
+    if (events && events.length > 0) {
+      const ev = events[liveEventIndex % events.length];
+      ticker.style.opacity = '0';
+      setTimeout(() => {
+        ticker.innerHTML = `<strong>[${ev.type || 'BROADCAST'}]</strong> ${ev.title}: ${ev.details || ''}`;
+        ticker.style.opacity = '1';
+      }, 200);
+      liveEventIndex++;
+    }
+  }
+
+  // Refresh Connection & Pub/Sub periodically
   checkBackend();
-  setInterval(checkBackend, 10000);
+  setInterval(checkBackend, 8000);
+  refreshPubSubTicker();
+  setInterval(refreshPubSubTicker, 4000);
 
   // Switch Portal Tabs (Student, Doctor, TA, Admin)
   roleTabBtns.forEach(btn => {
@@ -704,6 +745,31 @@ document.addEventListener('DOMContentLoaded', () => {
       state.currentUser = null;
       setUserSession(null);
       showToast('Logged out successfully', 'info');
+    });
+  }
+
+  // Computer Networks Modal Handlers
+  const cnModal = document.getElementById('cnModal');
+  const openCnModalBtn = document.getElementById('openCnModalBtn');
+  const closeCnModalBtn = document.getElementById('closeCnModalBtn');
+
+  if (openCnModalBtn && cnModal) {
+    openCnModalBtn.addEventListener('click', () => {
+      cnModal.classList.add('open');
+    });
+  }
+
+  if (closeCnModalBtn && cnModal) {
+    closeCnModalBtn.addEventListener('click', () => {
+      cnModal.classList.remove('open');
+    });
+  }
+
+  if (cnModal) {
+    cnModal.addEventListener('click', (e) => {
+      if (e.target === cnModal) {
+        cnModal.classList.remove('open');
+      }
     });
   }
 

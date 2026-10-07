@@ -1,0 +1,12 @@
+.git
+.gitignore
+*.o
+*.exe
+*.log
+*.cbp
+*.depend
+*.layout
+.idea/
+.vscode/
+bin/
+obj/
